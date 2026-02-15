@@ -1,5 +1,15 @@
 import db from "../database/connection.js";
 const sessionController = {
+  get: async (req, res) => {
+    try {
+      const result = await db.query("SELECT * FROM workout_sessions");
+      res.json(result.rows);
+    } catch (err) {
+      console.error(err);
+      res.status(500).send("Server error");
+    }
+  },
+
   post: async (req, res) => {
     const { user_id, template_id, date } = req.body;
     try {

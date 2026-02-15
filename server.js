@@ -3,6 +3,7 @@ import express from "express";
 import userRoutes from "./src/routes/users.js";
 import templateRoutes from "./src/routes/templates.js";
 import sessionRoutes from "./src/routes/sessions.js";
+import setRoutes from "./src/routes/sets.js";
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -17,6 +18,9 @@ app.use("/api/templates", templateRoutes);
 
 // Shows me the workout sessions
 app.use("/api/sessions", sessionRoutes);
+
+// updates sets in sessions
+app.use("/api/sets", setRoutes);
 
 // Takes me to the root of the API, not REALLY needed, but it's a nice touch
 app.get("/", (req, res) => {
