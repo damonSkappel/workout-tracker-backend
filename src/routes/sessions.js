@@ -9,4 +9,6 @@ router.get("/", controller.get);
 
 router.get("/:id", controller.getSession); // Get /api/sessions/:id
 
+router.put("/:id", controller.completeSession); // Update /api/sessions/:id
+
 export default router;

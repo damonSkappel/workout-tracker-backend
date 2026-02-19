@@ -75,6 +75,24 @@ const sessionController = {
       res.status(500).send("Server error");
     }
   },
+
+  completeSession: async (req, res) => {
+    const session_id = req.params.id;
+
+    try {
+      const result = await db.query(
+        "UPDATE workout_sessions SET completed = true WHERE id = $1 RETURNING *",
+        [session_id],
+      );
+      if (result.rows.length === 0) {
+        return res.status(404).send("Session not found");
+      }
+      res.json(result.rows[0]);
+    } catch (err) {
+      console.error(err);
+      res.status(500).send("Server error");
+    }
+  },
 };
 
 export default sessionController;
