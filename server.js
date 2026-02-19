@@ -4,10 +4,12 @@ import userRoutes from "./src/routes/users.js";
 import templateRoutes from "./src/routes/templates.js";
 import sessionRoutes from "./src/routes/sessions.js";
 import setRoutes from "./src/routes/sets.js";
+import cors from "cors";
 
 const app = express();
 const port = process.env.PORT || 3000;
 
+app.use(cors());
 app.use(express.json());
 
 // shows me the users when I go to /api/users
