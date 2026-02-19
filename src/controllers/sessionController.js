@@ -1,5 +1,40 @@
 import db from "../database/connection.js";
 const sessionController = {
+  getSession: async (req, res) => {
+    const session_id = req.params.id;
+    try {
+      const sessionInfo = await db.query(
+        "SELECT * FROM workout_sessions WHERE id = $1",
+        [session_id],
+      );
+      if (sessionInfo.rows.length === 0) {
+        return res.status(404).send("Session not found");
+      }
+      const session = sessionInfo.rows[0];
+      const getExercises = await db.query(
+        "SELECT * FROM template_exercises WHERE template_id = $1 ORDER BY order_index",
+        [session.template_id],
+      );
+      const exercises = getExercises.rows;
+
+      const getSets = await db.query(
+        "SELECT * FROM sets WHERE session_id = $1 ORDER BY id",
+        [session_id],
+      );
+      const sets = getSets.rows;
+
+      const responseData = {
+        session: session,
+        exercises: exercises,
+        sets: sets,
+      };
+      res.json(responseData);
+    } catch (err) {
+      console.error(err);
+      res.status(500).send("Server error");
+    }
+  },
+
   get: async (req, res) => {
     try {
       const result = await db.query("SELECT * FROM workout_sessions");

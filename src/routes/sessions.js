@@ -7,4 +7,6 @@ router.post("/", controller.post);
 
 router.get("/", controller.get);
 
+router.get("/:id", controller.getSession); // Get /api/sessions/:id
+
 export default router;
