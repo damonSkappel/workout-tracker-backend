@@ -2,7 +2,10 @@ import db from "../database/connection.js";
 const templateController = {
   get: async (req, res) => {
     try {
-      const result = await db.query("SELECT * FROM workout_templates");
+      const result = await db.query(
+        "SELECT * FROM workout_templates WHERE user_id = $1",
+        [req.user.user_id],
+      );
       res.json(result.rows);
     } catch (err) {
       console.error(err);
@@ -11,7 +14,8 @@ const templateController = {
   },
 
   post: async (req, res) => {
-    const { name, user_id } = req.body;
+    const { name } = req.body;
+    const user_id = req.user.user_id;
     try {
       const result = await db.query(
         "INSERT INTO workout_templates (name, user_id) VALUES ($1, $2) RETURNING *",
