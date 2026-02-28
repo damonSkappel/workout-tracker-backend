@@ -4,6 +4,8 @@ import userRoutes from "./src/routes/users.js";
 import templateRoutes from "./src/routes/templates.js";
 import sessionRoutes from "./src/routes/sessions.js";
 import setRoutes from "./src/routes/sets.js";
+import authRoutes from "./src/routes/authRoutes.js";
+import authenticateToken from "./src/middleware/authMiddleware.js";
 import cors from "cors";
 
 const app = express();
@@ -13,16 +15,19 @@ app.use(cors());
 app.use(express.json());
 
 // shows me the users when I go to /api/users
-app.use("/api/users", userRoutes);
+app.use("/api/users", authenticateToken, userRoutes);
 
 //Shows me the workout templates
-app.use("/api/templates", templateRoutes);
+app.use("/api/templates", authenticateToken, templateRoutes);
 
 // Shows me the workout sessions
-app.use("/api/sessions", sessionRoutes);
+app.use("/api/sessions", authenticateToken, sessionRoutes);
 
 // updates sets in sessions
-app.use("/api/sets", setRoutes);
+app.use("/api/sets", authenticateToken, setRoutes);
+
+// Authentication routes
+app.use("/auth", authRoutes);
 
 // Takes me to the root of the API, not REALLY needed, but it's a nice touch
 app.get("/", (req, res) => {

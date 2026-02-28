@@ -20,8 +20,8 @@ const authController = {
       }
 
       // Step 2, Hash the password
-      const saltRounts = 10;
-      const hashedPassword = await bcrypt.hash(password, saltRounts);
+      const saltRounds = 10;
+      const hashedPassword = await bcrypt.hash(password, saltRounds);
 
       //Step 3 Create User
 
@@ -60,6 +60,50 @@ const authController = {
 
   login: async (req, res) => {
     //Login logic
+    //get the users email and password input
+    const { email, password } = req.body;
+
+    try {
+      //check if the user exists in the database
+      const existingUser = await db.query(
+        "SELECT * FROM users WHERE email = $1",
+        [email],
+      );
+      if (existingUser.rows.length === 0) {
+        return res.status(400).json({ error: "Invalid credentials" });
+      }
+
+      const user = existingUser.rows[0];
+
+      //check if the password they submitted matches the hashed password in the database
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        return res.status(400).json({ error: "Invalid credentials" });
+      }
+
+      // if it matches, generate a JWT token and send it back to the client
+      const token = jwt.sign(
+        {
+          userId: user.id,
+          email: user.email,
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "24h" },
+      );
+
+      res.json({
+        message: "Login successful",
+        token: token,
+        user: {
+          id: user.id,
+          email: user.email,
+          username: user.username,
+        },
+      });
+    } catch (error) {
+      console.error("Error during login:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
   },
 };
 
