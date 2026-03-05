@@ -4,7 +4,7 @@ const templateController = {
     try {
       const result = await db.query(
         "SELECT * FROM workout_templates WHERE user_id = $1",
-        [req.user.user_id],
+        [req.user.userId],
       );
       res.json(result.rows);
     } catch (err) {
@@ -19,7 +19,7 @@ const templateController = {
     try {
       const result = await db.query(
         "INSERT INTO workout_templates (name, user_id) VALUES ($1, $2) RETURNING *",
-        [name, user_id],
+        [name, req.user.userId],
       );
       res.status(201).json(result.rows[0]);
     } catch (err) {

@@ -46,7 +46,8 @@ const sessionController = {
   },
 
   post: async (req, res) => {
-    const { user_id, template_id, date } = req.body;
+    const { template_id, date } = req.body;
+    const user_id = req.user.userId;
     try {
       const result = await db.query(
         "INSERT INTO workout_sessions (user_id, template_id, date) VALUES ($1, $2, $3) RETURNING *",
