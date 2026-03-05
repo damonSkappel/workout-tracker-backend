@@ -34,6 +34,6 @@ app.get("/", (req, res) => {
   res.send("Hi there!");
 });
 
-app.listen(port, () => {
+app.listen(port, "0.0.0.0", () => {
   console.log(`Example app is running on port ${port}`);
 });
