@@ -7,8 +7,10 @@ router.post("/", controller.post);
 
 router.get("/", controller.get);
 
-router.get("/:id", controller.getSession); // Get /api/sessions/:id
+router.get("/history", controller.getHistory); // Must be before /:id
 
-router.put("/:id", controller.completeSession); // Update /api/sessions/:id
+router.get("/:id", controller.getSession);
+
+router.put("/:id", controller.completeSession);
 
 export default router;

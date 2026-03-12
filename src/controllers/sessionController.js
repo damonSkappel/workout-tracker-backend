@@ -77,6 +77,46 @@ const sessionController = {
     }
   },
 
+  getHistory: async (req, res) => {
+    const user_id = req.user.userId;
+    try {
+      const result = await db.query(
+        `SELECT 
+        t.id as template_id,
+        t.name as template_name,
+        s.id as session_id,
+        s.date
+      FROM workout_sessions s
+      JOIN workout_templates t ON s.template_id = t.id
+      WHERE s.user_id = $1
+      AND s.completed = true
+      ORDER BY t.name, s.date DESC`,
+        [user_id],
+      );
+
+      // Group the flat rows into { template_id, template_name, sessions: [] }
+      const grouped = {};
+      for (const row of result.rows) {
+        if (!grouped[row.template_id]) {
+          grouped[row.template_id] = {
+            template_id: row.template_id,
+            template_name: row.template_name,
+            sessions: [],
+          };
+        }
+        grouped[row.template_id].sessions.push({
+          session_id: row.session_id,
+          date: row.date,
+        });
+      }
+
+      res.json(Object.values(grouped));
+    } catch (err) {
+      console.error(err);
+      res.status(500).send("Server error");
+    }
+  },
+
   completeSession: async (req, res) => {
     const session_id = req.params.id;
 
