@@ -1,11 +1,50 @@
 import db from "../database/connection.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import {
+  issueRefreshToken,
+  revokeRefreshToken,
+  rotateRefreshToken,
+} from "../services/refreshTokens.js";
+
+// Kept in sync with the signup screen's client-side check, so a direct API
+// call can't create an account the app itself would have rejected.
+const MIN_PASSWORD_LENGTH = 6;
+
+// Short-lived on purpose: the refresh token is what keeps a user signed in, so
+// a leaked access token stops working in minutes rather than a day.
+const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || "15m";
+const JWT_ISSUER = process.env.JWT_ISSUER || "workout-tracker-api";
+const JWT_AUDIENCE = process.env.JWT_AUDIENCE || "workout-tracker-mobile";
+
+const signAccessToken = (userId, email) => {
+  return jwt.sign(
+    { userId, email },
+    process.env.JWT_SECRET,
+    {
+      expiresIn: JWT_EXPIRES_IN,
+      issuer: JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+    },
+  );
+};
 
 const authController = {
   register: async (req, res) => {
     //Registration logic
-    const { email, username, password } = req.body;
+    const email = req.body?.email?.trim().toLowerCase();
+    const username = req.body?.username?.trim();
+    const password = req.body?.password;
+
+    if (!email || !username || !password) {
+      return res.status(400).json({ error: "Email, username, and password are required." });
+    }
+
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return res.status(400).json({
+        error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
+      });
+    }
 
     try {
       // Step 1, Check if user already exists
@@ -33,19 +72,15 @@ const authController = {
       const newUser = result.rows[0];
 
       //Step 4, Generate JWT Token
-      const token = jwt.sign(
-        {
-          userId: newUser.id,
-          email: newUser.email,
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: "24h" },
-      );
+      const token = signAccessToken(newUser.id, newUser.email);
+
+      const refreshToken = await issueRefreshToken(newUser.id);
 
       //Step 5, Send back toekn and user info
       res.status(201).json({
         message: "User registered successfully",
         token: token,
+        refreshToken: refreshToken,
         user: {
           id: newUser.id,
           email: newUser.email,
@@ -61,7 +96,12 @@ const authController = {
   login: async (req, res) => {
     //Login logic
     //get the users email and password input
-    const { email, password } = req.body;
+    const email = req.body?.email?.trim().toLowerCase();
+    const password = req.body?.password;
+
+    if (!email || !password) {
+      return res.status(400).json({ error: "Email and password are required." });
+    }
 
     try {
       //check if the user exists in the database
@@ -82,18 +122,14 @@ const authController = {
       }
 
       // if it matches, generate a JWT token and send it back to the client
-      const token = jwt.sign(
-        {
-          userId: user.id,
-          email: user.email,
-        },
-        process.env.JWT_SECRET,
-        { expiresIn: "24h" },
-      );
+      const token = signAccessToken(user.id, user.email);
+
+      const refreshToken = await issueRefreshToken(user.id);
 
       res.json({
         message: "Login successful",
         token: token,
+        refreshToken: refreshToken,
         user: {
           id: user.id,
           email: user.email,
@@ -104,6 +140,64 @@ const authController = {
       console.error("Error during login:", error);
       res.status(500).json({ error: "Internal server error" });
     }
+  },
+
+  refresh: async (req, res) => {
+    const presented = req.body?.refreshToken;
+
+    if (!presented) {
+      return res.status(400).json({ error: "Refresh token is required." });
+    }
+
+    try {
+      const result = await rotateRefreshToken(presented);
+
+      if (result.status === "reused") {
+        console.warn(
+          `[auth] Refresh token reuse detected for user ${result.userId}; all sessions revoked.`,
+        );
+        return res
+          .status(401)
+          .json({ error: "Session is no longer valid. Please log in again." });
+      }
+
+      if (result.status !== "rotated") {
+        return res
+          .status(401)
+          .json({ error: "Session is no longer valid. Please log in again." });
+      }
+
+      return res.json({
+        token: signAccessToken(result.userId, result.email),
+        refreshToken: result.refreshToken,
+      });
+    } catch (error) {
+      console.error("Error during token refresh:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+
+  logout: async (req, res) => {
+    const presented = req.body?.refreshToken;
+
+    try {
+      if (presented) await revokeRefreshToken(presented);
+      // Always 204: whether that token existed is not the caller's business.
+      return res.status(204).send();
+    } catch (error) {
+      console.error("Error during logout:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  },
+
+  verify: async (req, res) => {
+    return res.json({
+      valid: true,
+      user: {
+        userId: req.user.userId,
+        email: req.user.email,
+      },
+    });
   },
 };
 

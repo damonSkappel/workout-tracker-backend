@@ -15,11 +15,16 @@ const templateController = {
 
   post: async (req, res) => {
     const { name } = req.body;
-    const user_id = req.user.user_id;
+    const trimmedName = name?.trim();
+
+    if (!trimmedName) {
+      return res.status(400).json({ error: "Template name is required." });
+    }
+
     try {
       const result = await db.query(
         "INSERT INTO workout_templates (name, user_id) VALUES ($1, $2) RETURNING *",
-        [name, req.user.userId],
+        [trimmedName, req.user.userId],
       );
       res.status(201).json(result.rows[0]);
     } catch (err) {

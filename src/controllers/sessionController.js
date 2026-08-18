@@ -49,6 +49,17 @@ const sessionController = {
     const { template_id, date } = req.body;
     const user_id = req.user.userId;
     try {
+      const exerciseCount = await db.query(
+        "SELECT COUNT(*) AS count FROM template_exercises WHERE template_id = $1",
+        [template_id],
+      );
+
+      if (Number(exerciseCount.rows[0].count) === 0) {
+        return res.status(400).json({
+          error: "Cannot start a workout with no exercises in the template.",
+        });
+      }
+
       const result = await db.query(
         "INSERT INTO workout_sessions (user_id, template_id, date) VALUES ($1, $2, $3) RETURNING *",
         [user_id, template_id, date],

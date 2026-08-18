@@ -10,8 +10,13 @@ import cors from "cors";
 
 const app = express();
 const port = process.env.PORT || 3000;
+const corsOrigin = process.env.CORS_ORIGIN;
 
-app.use(cors());
+app.use(
+  cors({
+    origin: corsOrigin ? corsOrigin.split(",").map((origin) => origin.trim()) : "*",
+  }),
+);
 app.use(express.json());
 
 // shows me the users when I go to /api/users
@@ -32,6 +37,10 @@ app.use("/auth", authRoutes);
 // Takes me to the root of the API, not REALLY needed, but it's a nice touch
 app.get("/", (req, res) => {
   res.send("Hi there!");
+});
+
+app.get("/health", (req, res) => {
+  res.json({ status: "ok" });
 });
 
 app.listen(port, "0.0.0.0", () => {
