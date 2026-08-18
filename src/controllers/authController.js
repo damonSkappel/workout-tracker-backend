@@ -7,9 +7,46 @@ import {
   rotateRefreshToken,
 } from "../services/refreshTokens.js";
 
-// Kept in sync with the signup screen's client-side check, so a direct API
+// Kept in sync with the signup screen's client-side checks, so a direct API
 // call can't create an account the app itself would have rejected.
 const MIN_PASSWORD_LENGTH = 6;
+const MIN_USERNAME_LENGTH = 2;
+const MAX_USERNAME_LENGTH = 30;
+const MAX_EMAIL_LENGTH = 254; // the practical limit from RFC 5321
+
+/**
+ * Deliberately loose: "something, an @, something, a dot, something".
+ *
+ * Validating email properly by pattern is a fool's errand -- the real grammar
+ * allows quoted strings, comments and bracketed IP literals, and strict-looking
+ * regexes are famous for rejecting addresses that genuinely work. The only real
+ * proof an address exists is sending mail to it. This just catches the honest
+ * mistakes, like a missing @ or a bare word.
+ */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Returns an error string, or null when the input is acceptable. */
+const validateCredentials = ({ email, username, password }) => {
+  if (!email || !password) return "Email and password are required.";
+  if (username !== undefined && !username) return "Username is required.";
+
+  if (email.length > MAX_EMAIL_LENGTH || !EMAIL_PATTERN.test(email)) {
+    return "Please enter a valid email address.";
+  }
+
+  if (
+    username !== undefined &&
+    (username.length < MIN_USERNAME_LENGTH || username.length > MAX_USERNAME_LENGTH)
+  ) {
+    return `Username must be between ${MIN_USERNAME_LENGTH} and ${MAX_USERNAME_LENGTH} characters.`;
+  }
+
+  if (password.length < MIN_PASSWORD_LENGTH) {
+    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+
+  return null;
+};
 
 // Short-lived on purpose: the refresh token is what keeps a user signed in, so
 // a leaked access token stops working in minutes rather than a day.
@@ -40,10 +77,9 @@ const authController = {
       return res.status(400).json({ error: "Email, username, and password are required." });
     }
 
-    if (password.length < MIN_PASSWORD_LENGTH) {
-      return res.status(400).json({
-        error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`,
-      });
+    const invalid = validateCredentials({ email, username, password });
+    if (invalid) {
+      return res.status(400).json({ error: invalid });
     }
 
     try {
