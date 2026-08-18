@@ -11,4 +11,6 @@ router.post("/:id/exercises", controller.postExercise);
 
 router.get("/:id/exercises", controller.getExercises);
 
+router.put("/:id/exercises/:exerciseId", controller.putExercise);
+
 export default router;
