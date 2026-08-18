@@ -1,4 +1,5 @@
 import db from "../database/connection.js";
+import { parseId, userOwnsTemplate } from "../services/ownership.js";
 const templateController = {
   get: async (req, res) => {
     try {
@@ -35,8 +36,19 @@ const templateController = {
 
   postExercise: async (req, res) => {
     const { exercise_name, order_index } = req.body;
-    const template_id = req.params.id;
+    const template_id = parseId(req.params.id);
+    const user_id = req.user.userId;
+
+    if (!template_id) {
+      return res.status(400).json({ error: "Invalid template id." });
+    }
+
     try {
+      // Without this, anyone could add exercises to someone else's template.
+      if (!(await userOwnsTemplate(template_id, user_id))) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
       const result = await db.query(
         "INSERT INTO template_exercises (exercise_name, order_index, template_id) VALUES ($1, $2, $3) RETURNING *",
         [exercise_name, order_index, template_id],
@@ -49,8 +61,20 @@ const templateController = {
   },
 
   getExercises: async (req, res) => {
-    const template_id = req.params.id;
+    const template_id = parseId(req.params.id);
+    const user_id = req.user.userId;
+
+    if (!template_id) {
+      return res.status(400).json({ error: "Invalid template id." });
+    }
+
     try {
+      // Checked explicitly rather than filtered in the query below, so someone
+      // else's template reads as missing instead of looking empty.
+      if (!(await userOwnsTemplate(template_id, user_id))) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
       const result = await db.query(
         "SELECT * FROM template_exercises WHERE template_id = $1 ORDER BY order_index",
         [template_id],

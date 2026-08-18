@@ -1,14 +1,23 @@
 import db from "../database/connection.js";
+import { parseId, userOwnsTemplate } from "../services/ownership.js";
 const sessionController = {
   getSession: async (req, res) => {
-    const session_id = req.params.id;
+    const session_id = parseId(req.params.id);
+    const user_id = req.user.userId;
+
+    if (!session_id) {
+      return res.status(400).json({ error: "Invalid session id." });
+    }
+
     try {
       const sessionInfo = await db.query(
-        "SELECT * FROM workout_sessions WHERE id = $1",
-        [session_id],
+        "SELECT * FROM workout_sessions WHERE id = $1 AND user_id = $2",
+        [session_id, user_id],
       );
+      // 404 rather than 403: a session that is not yours should look like one
+      // that does not exist, so this cannot be used to probe for other users.
       if (sessionInfo.rows.length === 0) {
-        return res.status(404).send("Session not found");
+        return res.status(404).json({ error: "Session not found" });
       }
       const session = sessionInfo.rows[0];
       const getExercises = await db.query(
@@ -37,7 +46,10 @@ const sessionController = {
 
   get: async (req, res) => {
     try {
-      const result = await db.query("SELECT * FROM workout_sessions");
+      const result = await db.query(
+        "SELECT * FROM workout_sessions WHERE user_id = $1 ORDER BY date DESC",
+        [req.user.userId],
+      );
       res.json(result.rows);
     } catch (err) {
       console.error(err);
@@ -46,9 +58,19 @@ const sessionController = {
   },
 
   post: async (req, res) => {
-    const { template_id, date } = req.body;
+    const { date } = req.body;
+    const template_id = parseId(req.body?.template_id);
     const user_id = req.user.userId;
+
+    if (!template_id) {
+      return res.status(400).json({ error: "A valid template id is required." });
+    }
+
     try {
+      if (!(await userOwnsTemplate(template_id, user_id))) {
+        return res.status(404).json({ error: "Template not found" });
+      }
+
       const exerciseCount = await db.query(
         "SELECT COUNT(*) AS count FROM template_exercises WHERE template_id = $1",
         [template_id],
@@ -129,15 +151,20 @@ const sessionController = {
   },
 
   completeSession: async (req, res) => {
-    const session_id = req.params.id;
+    const session_id = parseId(req.params.id);
+    const user_id = req.user.userId;
+
+    if (!session_id) {
+      return res.status(400).json({ error: "Invalid session id." });
+    }
 
     try {
       const result = await db.query(
-        "UPDATE workout_sessions SET completed = true WHERE id = $1 RETURNING *",
-        [session_id],
+        "UPDATE workout_sessions SET completed = true WHERE id = $1 AND user_id = $2 RETURNING *",
+        [session_id, user_id],
       );
       if (result.rows.length === 0) {
-        return res.status(404).send("Session not found");
+        return res.status(404).json({ error: "Session not found" });
       }
       res.json(result.rows[0]);
     } catch (err) {
