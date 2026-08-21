@@ -52,7 +52,6 @@ const templateController = {
   },
 
   postExercise: async (req, res) => {
-    const { order_index } = req.body;
     const exercise_name = req.body?.exercise_name?.trim();
     const template_id = parseId(req.params.id);
     const user_id = req.user.userId;
@@ -81,9 +80,22 @@ const templateController = {
         return res.status(404).json({ error: "Template not found" });
       }
 
+      // Appended to the end. The client used to send a hardcoded order_index of
+      // 1 for everything, which left ORDER BY order_index with nothing to sort
+      // by, so exercises came back in whatever order Postgres felt like. The
+      // position is decided here rather than by the caller, since only the
+      // server knows what is already in the template.
       const result = await db.query(
-        "INSERT INTO template_exercises (exercise_name, order_index, default_sets, template_id) VALUES ($1, $2, $3, $4) RETURNING *",
-        [exercise_name, order_index ?? 1, default_sets, template_id],
+        `INSERT INTO template_exercises (exercise_name, order_index, default_sets, template_id)
+         VALUES (
+           $1,
+           (SELECT COALESCE(MAX(order_index), 0) + 1
+              FROM template_exercises WHERE template_id = $3),
+           $2,
+           $3
+         )
+         RETURNING *`,
+        [exercise_name, default_sets, template_id],
       );
       res.status(201).json(result.rows[0]);
     } catch (err) {
@@ -155,7 +167,7 @@ const templateController = {
       }
 
       const result = await db.query(
-        "SELECT * FROM template_exercises WHERE template_id = $1 ORDER BY order_index",
+        "SELECT * FROM template_exercises WHERE template_id = $1 ORDER BY order_index, id",
         [template_id],
       );
       res.json(result.rows);

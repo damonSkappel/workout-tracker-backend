@@ -21,7 +21,7 @@ const sessionController = {
       }
       const session = sessionInfo.rows[0];
       const getExercises = await db.query(
-        "SELECT * FROM template_exercises WHERE template_id = $1 ORDER BY order_index",
+        "SELECT * FROM template_exercises WHERE template_id = $1 ORDER BY order_index, id",
         [session.template_id],
       );
       const exercises = getExercises.rows;
@@ -87,7 +87,7 @@ const sessionController = {
         [user_id, template_id, date],
       );
       const exercises = await db.query(
-        "SELECT * FROM template_exercises WHERE template_id = $1 ORDER BY order_index",
+        "SELECT * FROM template_exercises WHERE template_id = $1 ORDER BY order_index, id",
         [template_id],
       );
       const session_id = result.rows[0].id; // Get the id of the session I just created
