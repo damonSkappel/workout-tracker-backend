@@ -10,6 +10,20 @@ import {
 // Kept in sync with the signup screen's client-side checks, so a direct API
 // call can't create an account the app itself would have rejected.
 const MIN_PASSWORD_LENGTH = 6;
+
+/**
+ * bcrypt only reads the first 72 BYTES of a password and silently ignores the
+ * rest. Without a cap, "hunter2...<72 bytes>...tailA" and the same prefix with a
+ * completely different tail both verify against the same hash, so a user who
+ * chose a long passphrase would have far less protection than they think.
+ *
+ * Rejecting is better than truncating quietly: a truncated password would also
+ * accept a shortened version of itself at login, which is baffling behaviour.
+ * 72 bytes still comfortably exceeds the 64 characters NIST asks us to allow.
+ *
+ * Measured in bytes, not characters -- one emoji costs four.
+ */
+const MAX_PASSWORD_BYTES = 72;
 const MIN_USERNAME_LENGTH = 2;
 const MAX_USERNAME_LENGTH = 30;
 const MAX_EMAIL_LENGTH = 254; // the practical limit from RFC 5321
@@ -43,6 +57,10 @@ const validateCredentials = ({ email, username, password }) => {
 
   if (password.length < MIN_PASSWORD_LENGTH) {
     return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+
+  if (Buffer.byteLength(password, "utf8") > MAX_PASSWORD_BYTES) {
+    return `Password is too long. Please use ${MAX_PASSWORD_BYTES} characters or fewer.`;
   }
 
   return null;
