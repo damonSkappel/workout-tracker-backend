@@ -20,14 +20,29 @@ const parseSetCount = (value) => {
 const templateController = {
   get: async (req, res) => {
     try {
+      // LEFT JOIN so a template with no exercises still comes back, with zeros.
+      // COUNT and SUM return bigint, which node-pg hands over as a string to
+      // avoid precision loss, so both are cast to int -- otherwise the app would
+      // receive "4" and render it fine but compare it wrongly.
+      // ORDER BY was missing entirely, which left the list order up to Postgres
+      // and free to change between requests.
       const result = await db.query(
-        "SELECT * FROM workout_templates WHERE user_id = $1",
+        `SELECT t.id,
+                t.name,
+                t.user_id,
+                COUNT(te.id)::int                     AS exercise_count,
+                COALESCE(SUM(te.default_sets), 0)::int AS set_count
+           FROM workout_templates t
+           LEFT JOIN template_exercises te ON te.template_id = t.id
+          WHERE t.user_id = $1
+          GROUP BY t.id
+          ORDER BY t.id`,
         [req.user.userId],
       );
       res.json(result.rows);
     } catch (err) {
       console.error(err);
-      res.status(500).send("Server error");
+      res.status(500).json({ error: "Internal server error" });
     }
   },
 
