@@ -16,8 +16,15 @@ psql "$DB_NAME" -f src/database/migrations/003_backfill_order_index.sql
 npm run dev               # nodemon
 ```
 
-Migrations are applied by hand, in filename order. There is no migration
-runner. Every file is written to be safe to re-run.
+`npm run migrate` applies every file in `src/database/migrations/` in filename
+order, inside one transaction -- a failure rolls back rather than leaving the
+database half-migrated. It does not track what has already run, because every
+file is written to be safe to re-run. A migration that is NOT re-runnable needs
+a `schema_migrations` table first.
+
+`000_initial_schema.sql` creates the core tables. It was added late, captured
+from the working schema, because those tables had originally been created by
+hand and a fresh database had nothing for `001` to attach to.
 
 There are **no automated tests** (`npm test` is a stub). Verify changes with real
 requests against the running server — `curl` against `localhost:3000` with a
@@ -81,6 +88,11 @@ an API response. List the columns.
 
 **Validate route ids with `parseId`** before they reach a query, or a non-numeric
 id becomes a Postgres cast error surfacing as a 500 instead of a 400.
+
+**`DATABASE_URL` wins over the `DB_*` variables.** Managed Postgres gives one
+connection string; local development uses the five separate values. SSL is
+enabled automatically when `DATABASE_URL` is present and off otherwise, because
+a local Postgres normally has no SSL and connecting with it just fails.
 
 **Nodemon watches `.js`, not `.env`.** Editing `.env` needs a manual restart.
 And `.env.example` is documentation only — `dotenv` never loads it. A test that

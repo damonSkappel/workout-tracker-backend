@@ -12,11 +12,14 @@ REST API for the WorkoutTracker app: Node.js, Express 5, PostgreSQL.
    ```bash
    cp .env.example .env
    ```
-3. Apply the SQL in `src/database/migrations/` to your database, in filename
-   order. Each file is safe to re-run:
+3. Create the database, then build the schema:
    ```bash
-   psql "$DB_NAME" -f src/database/migrations/001_refresh_tokens.sql
+   createdb workout_tracker
+   npm run migrate
    ```
+   `npm run migrate` applies every file in `src/database/migrations/` in
+   filename order, inside a single transaction. Each file is safe to re-run, so
+   running it again is a no-op.
 4. Start it:
    ```bash
    npm run dev    # nodemon
@@ -52,3 +55,51 @@ All other routes under `/api/*` require a valid access token.
 Per IP, over a 15-minute window by default: 10 **failed** logins (successful
 ones are not counted), 5 registrations, 60 refreshes. All configurable via the
 env vars in `.env.example`.
+
+
+## Deploying to Heroku
+
+The app reads `DATABASE_URL` when it is present and falls back to the five
+`DB_*` variables locally, so the same code runs in both places.
+
+**One-time setup**
+
+```bash
+heroku login
+heroku create your-app-name
+heroku addons:create heroku-postgresql:essential-0   # sets DATABASE_URL for you
+```
+
+Set the config. `JWT_SECRET` must be a **new** strong value, not the one from
+your laptop:
+
+```bash
+heroku config:set JWT_SECRET="$(openssl rand -base64 48)"
+heroku config:set JWT_ISSUER=workout-tracker-api
+heroku config:set JWT_AUDIENCE=workout-tracker-mobile
+heroku config:set JWT_EXPIRES_IN=15m
+```
+
+Never set `DATABASE_URL` or `PORT` yourself -- Heroku manages both.
+
+**Deploy and build the schema**
+
+```bash
+git push heroku main
+heroku run npm run migrate
+heroku open        # should show "Hi there!"
+curl https://your-app-name.herokuapp.com/health
+```
+
+**Point the app at it.** In the mobile repo, set `EXPO_PUBLIC_API_URL` to the
+`https://` URL and restart Expo -- `EXPO_PUBLIC_*` values are inlined at bundle
+time, so a running server will not pick up the change.
+
+**Notes**
+
+- Use a **Basic** dyno, not Eco. Eco dynos sleep after inactivity, and waiting
+  ~30s for the app to wake up mid-workout is miserable. Basic does not sleep.
+- The hosted database starts empty. Accounts and workouts created locally do not
+  come with it; sign up again against the deployed API.
+- The rate limiter counts in memory, so a dyno restart forgets everyone. Fine
+  for one dyno, wrong the moment you scale past one.
