@@ -10,9 +10,8 @@ in `../WorkoutTracker` (its own repo, with its own CLAUDE.md).
 ```bash
 npm install
 cp .env.example .env      # fill in DB credentials and a real JWT_SECRET
-psql "$DB_NAME" -f src/database/migrations/001_refresh_tokens.sql
-psql "$DB_NAME" -f src/database/migrations/002_indexes.sql
-psql "$DB_NAME" -f src/database/migrations/003_backfill_order_index.sql
+createdb workout_tracker
+npm run migrate           # builds the schema from nothing
 npm run dev               # nodemon
 ```
 
@@ -42,7 +41,8 @@ src/middleware/
 src/services/
   ownership.js            parseId + userOwnsTemplate / userOwnsSession
   refreshTokens.js        issue / rotate / revoke, with reuse detection
-src/database/migrations/  hand-applied SQL
+src/database/migrations/  schema, applied by `npm run migrate`
+src/database/migrate.js   the runner
 ```
 
 `/auth/*` is public (except `/auth/verify`). Everything under `/api/*` sits
